@@ -29,23 +29,18 @@ uint16_t Omron2SMPB02E::read_reg16(uint8_t addr)
   return((read_reg(addr) << 8) | (read_reg(addr + 1)));
 }
 
-//Omron2SMPB02E(uint8_t SDO = 1)
-Omron2SMPB02E::Omron2SMPB02E()
+Omron2SMPB02E::Omron2SMPB02E(uint8_t SDO = 1)
 {
-  //  if (SDO == 0) i2c_addr = 0x70;
-  i2c_addr = 0x70;
-}
-
-Omron2SMPB02E::~Omron2SMPB02E()
-{
+  i2c_addr = 0x56;
+  if (SDO == 0) i2c_addr = 0x70;
 }
 
 float Omron2SMPB02E::conv_K0(uint32_t x, float a, float s)
 {
-  return(a + (s * (float)x) / 32767.0);
+  return(a + ((s * (float)x) / 32767.0));
 }
 
-float Omron2SMPB02E::conv_K1(uint16_t x)
+float Omron2SMPB02E::conv_K1(uint32_t x)
 {
   return((float)x / 16.0);
 }
@@ -55,8 +50,8 @@ void Omron2SMPB02E::begin()
   Wire.begin();
   write_reg(IO_SETUP, 0x00); // IO_SETUP
   uint8_t coe_b00_a0_ex = read_reg(COE_b00_a0_ex);
-  a0 = conv_K1((read_reg16(COE_a0) << 4) | (coe_b00_a0_ex & 0x0f));
-  b00 = conv_K1((read_reg16(COE_b00) << 4) | (coe_b00_a0_ex > 4));
+  a0 = conv_K1(((uint32_t)(read_reg16(COE_a0)) << 4) | (coe_b00_a0_ex & 0x0f));
+  b00 = conv_K1(((uint32_t)(read_reg16(COE_b00)) << 4) | (coe_b00_a0_ex >> 4));
   a1 = conv_K0(read_reg16(COE_a1), -6.3e-3, 4.3e-4);
   a2 = conv_K0(read_reg16(COE_a2), -1.9e-11, 1.2e-10);
   bt1 = conv_K0(read_reg16(COE_bt1), 1.0e-1, 9.1e-2);
@@ -67,6 +62,9 @@ void Omron2SMPB02E::begin()
   b12 = conv_K0(read_reg16(COE_b12), 2.9e-13, 7.6e-13);
   b21 = conv_K0(read_reg16(COE_b21), 2.1e-15, 1.2e-14);
   bp3 = conv_K0(read_reg16(COE_bp3), 1.3e-16, 7.9e-17);
+
+  set_average(AVG_1, AVG_1);
+
 }
 
 uint8_t Omron2SMPB02E::read_id()
@@ -153,7 +151,7 @@ float Omron2SMPB02E::read_pressure()
   return(pressure);
 }
 
-void Omron2SMPB02E::set_averate(uint8_t temp_avg, uint8_t pressure_avg)
+void Omron2SMPB02E::set_average(uint8_t temp_avg, uint8_t pressure_avg)
 {
   uint8_t r = read_reg(CTRL_MEAS) & 0x03;
   r = r | (temp_avg << 5);

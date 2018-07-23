@@ -1,7 +1,7 @@
-#include "Arduino.h"
-
 #ifndef Omron2SMPB02E_h
 #define Omron2SMPB02E_h
+
+#include "Arduino.h"
 
 #define MODE_SLEEP  0
 #define MODE_FORCE  1
@@ -83,15 +83,28 @@
 #define FILTER_16  0x4
 #define FILTER_32  0x5
 
-class OM_2SMPB02E
+class Omron2SMPB02E
 {
  private:
   // calibration coefficients
+  uint8_t i2c_addr = 0x56; // SDO=1 / 0x70@SDO=0
+  
+ public:
   float a0, b00;
   float a1, a2;
   float bt1, bp1, b11, bt2, bp2, b12, b21, bp3;
 
-  uint8_t i2c_addr = 0x56; // SDO=1 / 0x70@SDO=0
+  Omron2SMPB02E(uint8_t SDO = 1);
+  void begin();
+  float read_temp(); // [degC]
+  float read_pressure(); // [Pa]
+  void set_mode(uint8_t mode); // MODE_{SLEEP,FORCE,NORMAL}
+  uint8_t read_id();
+  void reset();
+  void set_average(uint8_t temp_avg, uint8_t pressure_avg);
+  uint8_t is_busy();
+  void set_filter(uint8_t mode);
+
   uint8_t read_reg(uint8_t addr);
   void write_reg(uint8_t addr, uint8_t data);
   uint16_t read_reg16(uint8_t addr); // read {(@addr):(@addr+1)}
@@ -99,21 +112,7 @@ class OM_2SMPB02E
   float read_calc_temp();
   long read_raw_pressure();
   float conv_K0(uint32_t x, float a, float s);
-  float conv_K1(uint16_t x);
-  
- public:
-  //  OM_2SMPB02E(uint8_t SDO = 1);
-  OM_2SMPB02E();
-  virtual ~OM_2SMPB02E();
-  void begin();
-  float read_temp(); // [degC]
-  float read_pressure(); // [Pa]
-  void set_mode(uint8_t mode); // MODE_{SLEEP,FORCE,NORMAL}
-  uint8_t read_id();
-  void reset();
-  void set_averate(uint8_t temp_avg, uint8_t pressure_avg);
-  uint8_t is_busy();
-  void set_filter(uint8_t mode);
-};
+  float conv_K1(uint32_t x);
 
+};
 #endif
