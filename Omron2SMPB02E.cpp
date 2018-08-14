@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Omron2SMPB02E.h>
 #include <Wire.h>
+#include "BigNumber.h"
 
 uint8_t Omron2SMPB02E::read_reg(uint8_t addr)
 {
@@ -23,10 +24,13 @@ void Omron2SMPB02E::write_reg(uint8_t addr, uint8_t data)
   Wire.endTransmission();
 }
 
-// read {(@addr):(@addr+1)}
-uint16_t Omron2SMPB02E::read_reg16(uint8_t addr)
+// read {(@addr):(@addr+1)}, 2's complement
+int Omron2SMPB02E::read_reg16(uint8_t addr)
 {
-  return((read_reg(addr) << 8) | (read_reg(addr + 1)));
+  uint16_t d = (read_reg(addr) << 8) | read_reg(addr + 1); // [@(addr):@(addr+1)]
+  return(-(d & 0b1000000000000000) | (d & 0b0111111111111111)); // 2's complement
+  return(d);
+  
 }
 
 Omron2SMPB02E::Omron2SMPB02E(uint8_t SDO = 1)
@@ -35,34 +39,30 @@ Omron2SMPB02E::Omron2SMPB02E(uint8_t SDO = 1)
   if (SDO == 0) i2c_addr = 0x70;
 }
 
-float Omron2SMPB02E::conv_K0(uint32_t x, float a, float s)
+BigNumber Omron2SMPB02E::conv_K0(int x, BigNumber a, BigNumber s)
 {
-  return(a + ((s * (float)x) / 32767.0));
+  return(a + ((s * (BigNumber)x) / (BigNumber)32767.0));
 }
 
-float Omron2SMPB02E::conv_K1(uint32_t x)
+BigNumber Omron2SMPB02E::conv_K1(long x)
 {
-  return((float)x / 16.0);
+  char s[10];
+  sprintf(s, "%ld", x);
+  return((BigNumber)s / (BigNumber)16);
 }
 
 void Omron2SMPB02E::begin()
 {
+  BigNumber::begin(20);
   Wire.begin();
   write_reg(IO_SETUP, 0x00); // IO_SETUP
-  uint8_t coe_b00_a0_ex = read_reg(COE_b00_a0_ex);
-  a0 = conv_K1(((uint32_t)(read_reg16(COE_a0)) << 4) | (coe_b00_a0_ex & 0x0f));
-  b00 = conv_K1(((uint32_t)(read_reg16(COE_b00)) << 4) | (coe_b00_a0_ex >> 4));
-  a1 = conv_K0(read_reg16(COE_a1), -6.3e-3, 4.3e-4);
-  a2 = conv_K0(read_reg16(COE_a2), -1.9e-11, 1.2e-10);
-  bt1 = conv_K0(read_reg16(COE_bt1), 1.0e-1, 9.1e-2);
-  bt2 = conv_K0(read_reg16(COE_bt2), 1.2e-8, 1.2e-6);
-  bp1 = conv_K0(read_reg16(COE_bp1), 3.3e-2, 1.9e-2);
-  b11 = conv_K0(read_reg16(COE_b11), 2.1e-7, 1.4e-7);
-  bp2 = conv_K0(read_reg16(COE_bp2), -6.3e-10, 3.5e-10);
-  b12 = conv_K0(read_reg16(COE_b12), 2.9e-13, 7.6e-13);
-  b21 = conv_K0(read_reg16(COE_b21), 2.1e-15, 1.2e-14);
-  bp3 = conv_K0(read_reg16(COE_bp3), 1.3e-16, 7.9e-17);
+  /* 
+  uint32_t coe_b00_a0_ex = (uint32_t)read_reg(COE_b00_a0_ex);
+  a0 = ((uint32_t)read_reg(COE_a0_1) << 12) | ((uint32_t)read_reg(COE_a0_0) << 4) | ((uint32_t)coe_b00_a0_ex & 0x0000000f);
+  a0 = -(a0 & (uint32_t)1 << 19) + (a0 & ~((uint32_t)1 << 19)); // 2's complement
 
+  b00 =((uint32_t)read_reg(COE_b00_1) << 12) | ((uint32_t)read_reg(COE_b00_0) << 4) | (coe_b00_a0_ex >> 4);
+  */
   set_average(AVG_1, AVG_1);
 
 }
@@ -79,26 +79,25 @@ void Omron2SMPB02E::reset()
 
 long Omron2SMPB02E::read_raw_temp()
 {
-  return(((read_reg(TEMP_TXD2) << 16)
-	  | (read_reg(TEMP_TXD1) <<  8)
-	  | (read_reg(TEMP_TXD2)      )) - (1 << 23));
+  return((((uint32_t)read_reg(TEMP_TXD2) << 16)
+	  | ((uint32_t)read_reg(TEMP_TXD1) <<  8)
+	  | ((uint32_t)read_reg(TEMP_TXD0)      )) - ((uint32_t)1 << 23));
 }
 
 long Omron2SMPB02E::read_raw_pressure()
 {
-  return(
-	 ((read_reg(PRESS_TXD2) << 16)
-	  | (read_reg(PRESS_TXD1) <<  8)
-	  | (read_reg(PRESS_TXD2)      )) - (1 << 23));
+  return((((uint32_t)read_reg(PRESS_TXD2) << 16)
+	  | ((uint32_t)read_reg(PRESS_TXD1) <<  8)
+	  | ((uint32_t)read_reg(PRESS_TXD0)      )) - ((uint32_t)1 << 23));
 }
 
 // read temperature in [degC]
-float Omron2SMPB02E::read_temp()
+BigNumber Omron2SMPB02E::read_temp()
 {
-  return(read_calc_temp() / 256.0);
+  return(read_calc_temp() / (BigNumber)256);
 }
 
-float Omron2SMPB02E::read_calc_temp()
+BigNumber Omron2SMPB02E::read_calc_temp()
 {
   // Tr = a0 + a1 * Dt + a2 * Dt^2 
   // -> temp = Re / 256 [degC]
@@ -122,32 +121,61 @@ float Omron2SMPB02E::read_calc_temp()
   // b21   2.1e-15   1.2e-14  [COE_b21_1,COE_b21_0]
   // bp3   1.3e-16   7.9e-17  [COE_bp3_1,COE_bp3_0]
 
-  float temp;
-  long dt;
-  dt = read_raw_temp();
-  //  temp = a0 + a1 * dt + a2 * dt * dt;
-  temp = a0 + (a1 + a2 * dt) * dt;
-  return(temp / 256.0);
+  char dt[10];
+  sprintf(dt, "%ld", read_raw_temp());
+  BigNumber Bdt = (BigNumber)dt;
+  long a0;
+  a0 = ((uint32_t)read_reg(COE_a0_1) << 12) | ((uint32_t)read_reg(COE_a0_0) << 4) | ((uint32_t)read_reg(COE_b00_a0_ex) & 0x0000000f);
+  a0 = -(a0 & (uint32_t)1 << 19) + (a0 & ~((uint32_t)1 << 19)); // 2's complement
+
+  BigNumber temp = conv_K1(a0)
+    + (conv_K0(read_reg16(COE_a1), (BigNumber)A_a1, (BigNumber)S_a1)
+       + conv_K0(read_reg16(COE_a2), (BigNumber)A_a2, (BigNumber)S_a2) * Bdt) * Bdt;
+  return(temp);
 }
 
 // read pressure in [Pa]
-float Omron2SMPB02E::read_pressure()
+BigNumber Omron2SMPB02E::read_pressure()
 {
-  // Pr = b00 + (bt1 * Tr) + (bp1 * Dp) + (b11 * Dp * Tr) + (bt2 * Tr-2)
+  // Pr = b00 + (bt1 * Tr) + (bp1 * Dp) + (b11 * Dp * Tr) + (bt2 * Tr^2)
   //      + (bp2 * Dp^2) + (b12 * Dp * Tr^2) + (b21 * Dp^2 * Tr) + (bp3 * Dp^3)
   //   Tr : raw temperature from TEMP_TXDx reg.
   //   Dp : raw pressure from PRESS_TXDx reg.
-  float pressure;
-  long tr, dp;
-  tr = read_calc_temp();
-  dp = read_raw_pressure();
-  //  pressure = b00 + bt1 * tr + bp1 * dp + b11 * dp * tr
-  //    + bt2 * tr * tr + bp2 * dp * dp + b12 * dp * tr * tr
-  //    + b21 * dp * dp * tr + bp3 * dp * dp * dp;
-  pressure = b00
-    + tr * (bt1 + b11 * bp1 + bt2 * tr)
-    + dp * (bp1 + b12 * tr * tr
-	    + dp * (bp2 + b21 * tr + bp3 * dp));
+  BigNumber pressure;
+  long b00 =((uint32_t)read_reg(COE_b00_1) << 12) | ((uint32_t)read_reg(COE_b00_0) << 4) | ((uint32_t)read_reg(COE_b00_a0_ex) >> 4);
+
+  char dp[10];
+  sprintf(dp, "%ld", read_raw_pressure());
+  BigNumber Bdp = (BigNumber)dp;
+  BigNumber Btr = (BigNumber)read_calc_temp();
+  /*
+  Pr = b00
+    + (bt1 * Tr)
+    + (b11 * Dp * Tr)
+    + (bt2 * Tr^2)
+    + (b12 * Dp * Tr^2)
+    + (bp1 * Dp)
+    + (bp2 * Dp^2)
+    + (b21 * Dp^2 * Tr)
+    + (bp3 * Dp^3)
+  pressure = Bb00
+    + Btr * (Bbt1 + Bb11 * Bdp + Btr * (Bbt2 + Bb12 * Bdp))
+    + Bdp * (Bbp1 + Bdp * (Bbp2 + Bb21 * Btr + Bbp3 * Bdp));
+  */
+  BigNumber w;
+  BigNumber w2;
+  pressure = conv_K1(b00);
+  w = conv_K0(read_reg16(COE_bt1), (BigNumber)A_bt1, (BigNumber)S_bt1);
+  w += conv_K0(read_reg16(COE_b11), (BigNumber)A_b11, (BigNumber)S_b11) * Bdp;
+  w += Btr * (conv_K0(read_reg16(COE_bt2), (BigNumber)A_bt2, (BigNumber)S_bt2)
+	      + conv_K0(read_reg16(COE_b12), (BigNumber)A_b12, (BigNumber)S_b12) * Bdp);
+  pressure += Btr * w;
+  w = conv_K0(read_reg16(COE_bp1), (BigNumber)A_bp1, (BigNumber)S_bp1);
+  w2 = conv_K0(read_reg16(COE_bp2), (BigNumber)A_bp2, (BigNumber)S_bp2);
+  w2 += conv_K0(read_reg16(COE_b21), (BigNumber)A_b21, (BigNumber)S_b21) * Btr;
+  w2 += conv_K0(read_reg16(COE_bp3), (BigNumber)A_bp3, (BigNumber)S_bp3) * Bdp;
+  w += Bdp * w2;
+  pressure += Bdp * w;
   return(pressure);
 }
 
