@@ -124,8 +124,10 @@ class Omron2SMPB02E
  public:
   Omron2SMPB02E(uint8_t SDO = 1);
   void begin();
-  BigNumber read_temp(); // [degC]
-  BigNumber read_pressure(); // [Pa]
+  //  BigNumber read_temp(); // [degC]
+  //  BigNumber read_pressure(); // [Pa]
+  float read_temp(); // [degC]
+  float read_pressure(); // [Pa]
   void set_mode(uint8_t mode); // MODE_{SLEEP,FORCE,NORMAL}
   uint8_t read_id();
   void reset();

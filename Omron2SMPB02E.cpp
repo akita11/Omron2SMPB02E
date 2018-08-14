@@ -92,9 +92,10 @@ long Omron2SMPB02E::read_raw_pressure()
 }
 
 // read temperature in [degC]
-BigNumber Omron2SMPB02E::read_temp()
+float Omron2SMPB02E::read_temp()
 {
-  return(read_calc_temp() / (BigNumber)256);
+  BigNumber t = read_calc_temp() / (BigNumber)256;
+  return((float)(t * (BigNumber)10000) / 10000.0);
 }
 
 BigNumber Omron2SMPB02E::read_calc_temp()
@@ -135,13 +136,14 @@ BigNumber Omron2SMPB02E::read_calc_temp()
 }
 
 // read pressure in [Pa]
-BigNumber Omron2SMPB02E::read_pressure()
+//BigNumber Omron2SMPB02E::read_pressure()
+float Omron2SMPB02E::read_pressure()
 {
   // Pr = b00 + (bt1 * Tr) + (bp1 * Dp) + (b11 * Dp * Tr) + (bt2 * Tr^2)
   //      + (bp2 * Dp^2) + (b12 * Dp * Tr^2) + (b21 * Dp^2 * Tr) + (bp3 * Dp^3)
   //   Tr : raw temperature from TEMP_TXDx reg.
   //   Dp : raw pressure from PRESS_TXDx reg.
-  BigNumber pressure;
+  BigNumber Bprs;
   long b00 =((uint32_t)read_reg(COE_b00_1) << 12) | ((uint32_t)read_reg(COE_b00_0) << 4) | ((uint32_t)read_reg(COE_b00_a0_ex) >> 4);
 
   char dp[10];
@@ -164,19 +166,19 @@ BigNumber Omron2SMPB02E::read_pressure()
   */
   BigNumber w;
   BigNumber w2;
-  pressure = conv_K1(b00);
+  Bprs = conv_K1(b00);
   w = conv_K0(read_reg16(COE_bt1), (BigNumber)A_bt1, (BigNumber)S_bt1);
   w += conv_K0(read_reg16(COE_b11), (BigNumber)A_b11, (BigNumber)S_b11) * Bdp;
   w += Btr * (conv_K0(read_reg16(COE_bt2), (BigNumber)A_bt2, (BigNumber)S_bt2)
 	      + conv_K0(read_reg16(COE_b12), (BigNumber)A_b12, (BigNumber)S_b12) * Bdp);
-  pressure += Btr * w;
+  Bprs += Btr * w;
   w = conv_K0(read_reg16(COE_bp1), (BigNumber)A_bp1, (BigNumber)S_bp1);
   w2 = conv_K0(read_reg16(COE_bp2), (BigNumber)A_bp2, (BigNumber)S_bp2);
   w2 += conv_K0(read_reg16(COE_b21), (BigNumber)A_b21, (BigNumber)S_b21) * Btr;
   w2 += conv_K0(read_reg16(COE_bp3), (BigNumber)A_bp3, (BigNumber)S_bp3) * Bdp;
   w += Bdp * w2;
-  pressure += Bdp * w;
-  return(pressure);
+  Bprs += Bdp * w;
+  return((float)(Bprs * (BigNumber)10000) / 10000.0);
 }
 
 void Omron2SMPB02E::set_average(uint8_t temp_avg, uint8_t pressure_avg)

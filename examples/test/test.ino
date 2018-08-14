@@ -8,16 +8,13 @@ void setup() {
   Serial.begin(9600);
   prs.set_mode(MODE_NORMAL);
   delay(1000);
-  BigNumber tmp = prs.read_temp();
+  float tmp = prs.read_temp();
   Serial.println("temperature [degC]");
   Serial.println(tmp);
-  Serial.println((float)tmp); // fraction part will become zero
-  BigNumber pressure = prs.read_pressure();
+  float pressure = prs.read_pressure();
   Serial.println("pressure [Pa]");
   Serial.println(pressure);
-  Serial.println((float)pressure); // fraction part will become zero
 }
 
 void loop() {
 }
-
