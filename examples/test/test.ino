@@ -7,14 +7,14 @@ void setup() {
   prs.begin();
   Serial.begin(9600);
   prs.set_mode(MODE_NORMAL);
-  delay(1000);
+  delay(300);
+}
+
+void loop() {
   float tmp = prs.read_temp();
   Serial.println("temperature [degC]");
   Serial.println(tmp);
   float pressure = prs.read_pressure();
   Serial.println("pressure [Pa]");
   Serial.println(pressure);
-}
-
-void loop() {
 }
