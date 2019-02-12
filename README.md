@@ -2,6 +2,8 @@
 
 Arduino library for Omron 2SMPB-02E, aboslute pressure sensor
 
+Breakout board: https://www.switch-science.com/catalog/5329/
+
 ## Instration
 1. Install this library
    1. Download ".zip" from this repositry
