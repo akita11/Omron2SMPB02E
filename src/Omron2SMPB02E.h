@@ -10,7 +10,7 @@
 
 #define MODE_SLEEP  0
 #define MODE_FORCE  1
-#define MODE_NORMAL 2
+#define MODE_NORMAL 3
 
 // registers
 #define TEMP_TXD0 0xfc
